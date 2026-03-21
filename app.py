@@ -4,11 +4,14 @@ import os
 
 app = Flask(__name__)
 
-# ---------------- i18n (jetzt vollständig) ----------------
+# ---------------- i18n (vollständig) ----------------
 TRANSLATIONS = {
     'de': {
+        # General
         'app_title': 'Dog Training CRM',
         'public_booking': 'Online-Buchung',
+        'save': 'Speichern',
+        'cancel': 'Abbrechen',
 
         # Navigation
         'german': 'Deutsch',
@@ -19,12 +22,13 @@ TRANSLATIONS = {
         'sessions': 'Trainingseinheiten',
         'invoices': 'Rechnungen',
         'search': 'Suche',
-        'availability': 'Verfügbarkeit',
+        'availability': 'Verfügbarkeiten',
         'online_booking': 'Online-Buchung',
 
         # Buttons
         'new_customer': 'Neuer Kunde',
-        'save': 'Speichern',
+        'new_dog': 'Neuer Hund',
+        'new_session': 'Neue Einheit',
 
         # Settings page
         'settings_title': 'Einstellungen',
@@ -34,8 +38,11 @@ TRANSLATIONS = {
     },
 
     'en': {
+        # General
         'app_title': 'Dog Training CRM',
         'public_booking': 'Online booking',
+        'save': 'Save',
+        'cancel': 'Cancel',
 
         # Navigation
         'german': 'German',
@@ -51,7 +58,8 @@ TRANSLATIONS = {
 
         # Buttons
         'new_customer': 'New customer',
-        'save': 'Save',
+        'new_dog': 'New dog',
+        'new_session': 'New session',
 
         # Settings page
         'settings_title': 'Settings',
@@ -77,7 +85,7 @@ def switch_lang(code):
     if code not in TRANSLATIONS:
         code = 'de'
     resp = make_response(redirect(request.referrer or url_for('index')))
-    resp.set_cookie('lang', code, max_age=60 * 60 * 24 * 365)
+    resp.set_cookie('lang', code, max_age=60*60*24*365)
     return resp
 
 # ---------------- DB ----------------
@@ -98,7 +106,7 @@ class Settings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     invoice_prefix = db.Column(db.String(50), default="INV-")
     next_number = db.Column(db.Integer, default=1)
-    vat_rate = db.Column(db.Float, default=20.0)  # Default 20%
+    vat_rate = db.Column(db.Float, default=20.0)
 
 with app.app_context():
     db.create_all()
@@ -137,49 +145,40 @@ def booking_submit(slot_id):
 @app.route("/admin/availability", endpoint="availability")
 def availability_index():
     return render_template("availability_index.html")
-app.add_url_rule("/admin/availability", endpoint="availability_index", view_func=availability_index)
 
 @app.route("/admin/availability/new", endpoint="new_availability")
 def availability_new():
     return render_template("availability_new.html")
-app.add_url_rule("/admin/availability/new", endpoint="availability_new", view_func=availability_new)
 
 @app.route("/admin/customers/new", endpoint="new_customer")
 def customers_new():
     return render_template("customers_new.html")
-app.add_url_rule("/admin/customers/new", endpoint="customers_new", view_func=customers_new)
 
 @app.route("/admin/customers/edit", endpoint="edit_customer")
 def customers_edit():
     return render_template("customers_edit.html")
-app.add_url_rule("/admin/customers/edit", endpoint="customers_edit", view_func=customers_edit)
 
 @app.route("/admin/customers/detail", endpoint="customer_detail")
 def customers_detail():
     return render_template("customers_detail.html")
-app.add_url_rule("/admin/customers/detail", endpoint="customers_detail", view_func=customers_detail)
 
 @app.route("/admin/dogs/new", endpoint="new_dog")
 def dogs_new():
     return render_template("dogs_new.html")
-app.add_url_rule("/admin/dogs/new", endpoint="dogs_new", view_func=dogs_new)
 
 @app.route("/admin/invoice/detail", endpoint="invoice")
 def invoice_detail():
     return render_template("invoice_detail.html")
-app.add_url_rule("/admin/invoice/detail", endpoint="invoice_detail", view_func=invoice_detail)
 
 @app.route("/admin/search", endpoint="admin_search")
 def search():
     return render_template("search.html")
-app.add_url_rule("/admin/search", endpoint="search", view_func=search)
 
 @app.route("/admin/sessions/new", endpoint="new_session")
 def sessions_new():
     return render_template("sessions_new.html")
-app.add_url_rule("/admin/sessions/new", endpoint="sessions_new", view_func=sessions_new)
 
-# ---------- SETTINGS PAGE (FULL FIX) ----------
+# ---------- SETTINGS PAGE ----------
 @app.route("/admin/settings", endpoint="admin_settings")
 def settings_page():
     s = Settings.query.first()
@@ -188,7 +187,6 @@ def settings_page():
         db.session.add(s)
         db.session.commit()
     return render_template("settings.html", s=s)
-app.add_url_rule("/admin/settings", endpoint="settings", view_func=settings_page)
 
 # ---------- Health + Seed ----------
 @app.route("/health")
