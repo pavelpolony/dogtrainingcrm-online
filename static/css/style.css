@@ -14,3 +14,10 @@ ul.flash{list-style:none;padding:0}
 ul.flash li{margin:0.25rem 0;padding:0.5rem;border-radius:4px}
 ul.flash li.success{background:#dcfce7}
 ul.flash li.info{background:#dbeafe}
+.auth-wrapper { max-width: 420px; margin: 2rem auto; background:#fff; padding:1.25rem 1.5rem; border-radius:8px; box-shadow:0 8px 24px rgba(0,0,0,.08); }
+.auth-form label { display:block; margin:.75rem 0; font-weight:600; }
+.auth-form input { width:100%; padding:.6rem .7rem; border:1px solid #ddd; border-radius:6px; }
+.btn.primary { background:#0b5ed7; color:#fff; border:none; padding:.6rem 1rem; border-radius:6px; cursor:pointer; }
+.flash-area { margin-top:1rem; }
+.flash.success { color:#155724; background:#d4edda; padding:.5rem .75rem; border-radius:4px; }
+.flash.error { color:#721c24; background:#f8d7da; padding:.5rem .75rem; border-radius:4px; }
