@@ -35,10 +35,11 @@ def index():
     return render_template("index.html")
 
 # ---------- ONLINE-BOOKING (for your book_* templates) ----------
+
 @app.route("/online-buchung")
-def online_booking():
-    # Start page for booking (book_index.html)
-    return render_template("book_index.html")
+def book_index():
+    slots = Slot.query.filter_by(booked=False).all()
+    return render_template("book_index.html", slots=slots)
 
 @app.route("/online-buchung/slot/<int:slot_id>")
 def booking_slot(slot_id):
