@@ -44,6 +44,16 @@ TRANSLATIONS = {
         'language': 'Sprache',
         'search_ph': 'Suchen…',
         'created': 'Erfolgreich angelegt.',
+        'updated': 'Aktualisiert.',
+        'done': 'Erledigt',
+        'mark_done': 'Als erledigt markieren',
+        'status': 'Status',
+        'customer': 'Kunde',
+        'email': 'E-Mail',
+        'phone': 'Telefon',
+        'book_now': 'Jetzt buchen',
+        'thank_you': 'Danke für Ihre Buchung.',
+        'appointment_created': 'Termin wurde erstellt.',
 
         # Navigation
         'german': 'Deutsch',
@@ -56,6 +66,7 @@ TRANSLATIONS = {
         'search': 'Suche',
         'availability': 'Verfügbarkeiten',
         'availabilities': 'Verfügbarkeiten',
+        'appointments': 'Termine',
         'online_booking': 'Online-Buchung',
 
         # Buttons
@@ -99,6 +110,16 @@ TRANSLATIONS = {
         'language': 'Language',
         'search_ph': 'Search…',
         'created': 'Successfully created.',
+        'updated': 'Updated.',
+        'done': 'Done',
+        'mark_done': 'Mark as done',
+        'status': 'Status',
+        'customer': 'Customer',
+        'email': 'Email',
+        'phone': 'Phone',
+        'book_now': 'Book now',
+        'thank_you': 'Thank you for your booking.',
+        'appointment_created': 'Appointment has been created.',
 
         'german': 'German',
         'english': 'English',
@@ -110,6 +131,7 @@ TRANSLATIONS = {
         'search': 'Search',
         'availability': 'Availability',
         'availabilities': 'Availabilities',
+        'appointments': 'Appointments',
         'online_booking': 'Online booking',
 
         'new_customer': 'New customer',
@@ -161,14 +183,11 @@ def switch_lang(code):
     return resp
 
 # ---------------- Models ----------------
-class Slot(db.Model):
+class Customer(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    date = db.Column(db.String(50))
-    time = db.Column(db.String(50))
-    booked = db.Column(db.Boolean, default=False)
-    customer_name = db.Column(db.String(120))
-    customer_email = db.Column(db.String(120))
-    customer_phone = db.Column(db.String(50))
+    name = db.Column(db.String(120))
+    email = db.Column(db.String(120), index=True)
+    phone = db.Column(db.String(50))
 
 class Settings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -178,9 +197,19 @@ class Settings(db.Model):
 
 class Availability(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    # ISO-String aus <input type="datetime-local"> (z.B. 2026-03-22T10:00)
     start = db.Column(db.String(50))
     duration_minutes = db.Column(db.Integer)
     location = db.Column(db.String(120))
+    booked = db.Column(db.Boolean, default=False)
+    appointments = db.relationship("Appointment", backref="availability", lazy=True)
+
+class Appointment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    availability_id = db.Column(db.Integer, db.ForeignKey('availability.id'), nullable=False)
+    customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
+    status = db.Column(db.String(20), default="confirmed")  # confirmed|done|canceled
+    customer = db.relationship("Customer", lazy=True)
 
 class AdminUser(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -196,8 +225,7 @@ class AdminUser(UserMixin, db.Model):
 
 with app.app_context():
     db.create_all()
-
-    # --- Admin Auto-Create (einmalig beim Start; sicher via ENV) ---
+    # Admin Auto-Create
     admin_email = os.getenv("ADMIN_EMAIL")
     admin_pass  = os.getenv("ADMIN_PASSWORD")
     if admin_email and admin_pass:
@@ -227,6 +255,7 @@ def verify_csrf(form_token: str) -> bool:
     return form_token and session.get('csrf_token') and form_token == session['csrf_token']
 
 # ---------------- Admin-only Decorator ----------------
+from flask_login import current_user
 def admin_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
@@ -238,7 +267,7 @@ def admin_required(view):
     return wrapped
 
 # ---------------- Mail ----------------
-def send_booking_email(slot: Slot):
+def send_booking_email(name, email_to, date_str, time_str):
     host = os.getenv('SMTP_HOST')
     port = int(os.getenv('SMTP_PORT', '587'))
     user = os.getenv('SMTP_USER')
@@ -246,20 +275,20 @@ def send_booking_email(slot: Slot):
     sender = os.getenv('SMTP_FROM', user or 'no-reply@example.com')
     notify = os.getenv('SMTP_NOTIFY')  # optional BCC
 
-    if not host or not slot or not slot.customer_email:
+    if not host or not email_to:
         return
 
     lang = getattr(g, 'lang', 'de')
     subject = TRANSLATIONS[lang]['booking_confirmed_subject']
     body = TRANSLATIONS[lang]['booking_confirmed_body'].format(
-        name=slot.customer_name or '',
-        date=slot.date or '',
-        time=slot.time or ''
+        name=name or '',
+        date=date_str or '',
+        time=time_str or ''
     )
 
     msg = EmailMessage()
     msg['From'] = sender
-    msg['To'] = slot.customer_email
+    msg['To'] = email_to
     if notify:
         msg['Bcc'] = notify
     msg['Subject'] = subject
@@ -278,34 +307,69 @@ def send_booking_email(slot: Slot):
 def home_index():
     return render_template("index.html")
 
-# ---------- ONLINE BOOKING ----------
+# Online-Buchungsseite zeigt FREIE Verfügbarkeiten
 @app.route("/online-buchung", endpoint="book_index")
-def online_booking():
-    slots = Slot.query.filter_by(booked=False).all()
-    return render_template("book_index.html", slots=slots)
+def book_index():
+    # freie, nach Start sortierte Einträge (ISO-Zeit sortiert lexikographisch korrekt)
+    avails = Availability.query.filter_by(booked=False).order_by(Availability.start.asc()).all()
+    return render_template("book_index.html", avails=avails)
 
-@app.route("/online-buchung/slot/<int:slot_id>", endpoint="book_slot")
-def booking_slot(slot_id):
-    slot = Slot.query.get(slot_id)
-    if not slot:
-        abort(404)
-    return render_template("book_slot.html", slot=slot)
+# Detailseite zum Buchen einer Availability
+@app.route("/online-buchung/slot/<int:avail_id>", endpoint="book_slot")
+def book_slot(avail_id):
+    csrf = ensure_csrf_token()
+    a = Availability.query.get(avail_id)
+    if not a or a.booked:
+        return "<h2>Dieser Slot ist nicht mehr verfügbar.</h2>", 410
+    # split für Anzeige
+    date_str = (a.start or "").split("T")[0]
+    time_str = (a.start or "").split("T")[-1]
+    return render_template("book_slot.html", a=a, date_str=date_str, time_str=time_str, csrf_token=csrf)
 
-@app.route("/online-buchung/slot/<int:slot_id>/buchen", methods=["POST"], endpoint="book_submit")
-def booking_submit(slot_id):
-    slot = Slot.query.get(slot_id)
-    if not slot:
-        abort(404)
-    slot.customer_name = request.form.get("name", "").strip()
-    slot.customer_email = request.form.get("email", "").strip()
-    slot.customer_phone = request.form.get("phone", "").strip()
-    slot.booked = True
+# Buchung absenden: Customer anlegen/finden + Appointment erstellen + Availability.booked=True
+@app.route("/online-buchung/slot/<int:avail_id>/buchen", methods=["POST"], endpoint="book_submit")
+def book_submit(avail_id):
+    if not verify_csrf(request.form.get("csrf_token")):
+        flash(TRANSLATIONS[g.lang]['invalid_csrf'], 'error')
+        return redirect(url_for('book_slot', avail_id=avail_id))
+
+    a = Availability.query.get(avail_id)
+    if not a or a.booked:
+        return "<h2>Dieser Slot ist nicht mehr verfügbar.</h2>", 410
+
+    name = (request.form.get("name") or "").strip()
+    email = (request.form.get("email") or "").strip()
+    phone = (request.form.get("phone") or "").strip()
+
+    if not name or not email:
+        flash("Name und E-Mail sind erforderlich.", "error")
+        return redirect(url_for('book_slot', avail_id=avail_id))
+
+    # Kunde finden/erstellen
+    c = Customer.query.filter_by(email=email).first()
+    if not c:
+        c = Customer(name=name, email=email, phone=phone)
+        db.session.add(c)
+        db.session.flush()  # ID sofort verfügbar
+
+    # Termin anlegen
+    ap = Appointment(availability_id=a.id, customer_id=c.id, status="confirmed")
+    db.session.add(ap)
+
+    # Slot sperren
+    a.booked = True
     db.session.commit()
+
+    # Mail
     try:
-        send_booking_email(slot)
+        parts = (a.start or "").split("T")
+        date_str = parts[0] if parts else ""
+        time_str = parts[1] if len(parts) > 1 else ""
+        send_booking_email(name, email, date_str, time_str)
     except Exception as e:
         print("send_booking_email failed:", e)
-    return "<h2>Buchung erfolgreich!</h2><p>Danke für Ihre Buchung.</p>"
+
+    return f"<h2>{TRANSLATIONS[g.lang]['thank_you']}</h2><p>{TRANSLATIONS[g.lang]['appointment_created']}</p>"
 
 # ---------------- Admin: Auth ----------------
 @app.route('/admin/login', methods=['GET', 'POST'], endpoint='admin_login')
@@ -334,18 +398,18 @@ def admin_logout():
     logout_user()
     return redirect(url_for('index'))
 
-# ---------------- Admin: Views (geschützt) ----------------
+# ---------------- Admin: Views ----------------
 # Availability LIST
 @app.route("/admin/availability", endpoint="availability")
 @admin_required
 def availability_index():
-    avails = Availability.query.all()
+    avails = Availability.query.order_by(Availability.start.asc()).all()
     return render_template("availability_index.html", avails=avails)
 app.add_url_rule("/admin/availability",
                  endpoint="availability_index",
                  view_func=availability_index)
 
-# Availability NEW (GET+POST) – erzeugt automatisch einen Slot
+# Availability NEW (GET+POST)
 @app.route("/admin/availability/new", methods=["GET", "POST"], endpoint="new_availability")
 @admin_required
 def availability_new():
@@ -360,7 +424,7 @@ def availability_new():
         location = (request.form.get("location") or "").strip()
 
         if not start:
-            flash("Start required", "error")
+            flash(TRANSLATIONS[g.lang]['invalid_csrf'], 'error')
             return redirect(url_for('new_availability'))
 
         try:
@@ -371,27 +435,8 @@ def availability_new():
             flash("Duration invalid", "error")
             return redirect(url_for('new_availability'))
 
-        # Save Availability
-        avail = Availability(start=start, duration_minutes=duration, location=location)
+        avail = Availability(start=start, duration_minutes=duration, location=location, booked=False)
         db.session.add(avail)
-        db.session.commit()
-
-        # Create corresponding Slot for public booking
-        try:
-            date_part, time_part = start.split("T")
-        except Exception:
-            date_part = start
-            time_part = "00:00"
-
-        slot = Slot(
-            date=date_part,
-            time=time_part,
-            booked=False,
-            customer_name=None,
-            customer_email=None,
-            customer_phone=None
-        )
-        db.session.add(slot)
         db.session.commit()
 
         flash(TRANSLATIONS[g.lang]['created'], 'success')
@@ -399,7 +444,28 @@ def availability_new():
 
     return render_template("availability_new.html", csrf_token=csrf)
 
-# Customers (nur GET-Views – POST später)
+# Appointments LIST + Status-Update
+@app.route("/admin/appointments", methods=["GET"], endpoint="appointments")
+@admin_required
+def appointments_index():
+    aps = Appointment.query.order_by(Appointment.id.desc()).all()
+    return render_template("appointments_index.html", aps=aps)
+
+@app.route("/admin/appointments/<int:ap_id>/done", methods=["POST"], endpoint="appointment_done")
+@admin_required
+def appointment_done(ap_id):
+    if not verify_csrf(request.form.get("csrf_token")):
+        flash(TRANSLATIONS[g.lang]['invalid_csrf'], 'error')
+        return redirect(url_for('appointments'))
+
+    ap = Appointment.query.get(ap_id)
+    if ap:
+        ap.status = "done"
+        db.session.commit()
+        flash(TRANSLATIONS[g.lang]['updated'], 'success')
+    return redirect(url_for('appointments'))
+
+# Platzhalter-Seiten (falls Templates existieren)
 @app.route("/admin/customers/new", endpoint="new_customer")
 @admin_required
 def customers_new():
@@ -424,7 +490,6 @@ app.add_url_rule("/admin/customers/detail",
                  endpoint="customers_detail",
                  view_func=customers_detail)
 
-# Dogs
 @app.route("/admin/dogs/new", endpoint="new_dog")
 @admin_required
 def dogs_new():
@@ -433,7 +498,6 @@ app.add_url_rule("/admin/dogs/new",
                  endpoint="dogs_new",
                  view_func=dogs_new)
 
-# Invoice
 @app.route("/admin/invoice/detail", endpoint="invoice")
 @admin_required
 def invoice_detail():
@@ -442,7 +506,6 @@ app.add_url_rule("/admin/invoice/detail",
                  endpoint="invoice_detail",
                  view_func=invoice_detail)
 
-# Search
 @app.route("/admin/search", endpoint="admin_search")
 @admin_required
 def search_page():
@@ -451,7 +514,6 @@ app.add_url_rule("/admin/search",
                  endpoint="search",
                  view_func=search_page)
 
-# Sessions
 @app.route("/admin/sessions/new", endpoint="new_session")
 @admin_required
 def sessions_new():
@@ -518,22 +580,10 @@ app.add_url_rule("/admin/settings",
                  endpoint="settings",
                  view_func=settings_page)
 
-# ---------- Health + Seed ----------
+# ---------- Health ----------
 @app.route("/health")
 def health():
     return "ok", 200
-
-@app.route("/admin/seed")
-def admin_seed():
-    if Slot.query.count() == 0:
-        db.session.add_all([
-            Slot(date="2026-03-22", time="10:00"),
-            Slot(date="2026-03-22", time="11:00"),
-            Slot(date="2026-03-23", time="15:30")
-        ])
-        db.session.commit()
-        return "seeded"
-    return "already seeded"
 
 if __name__ == "__main__":
     with app.app_context():
