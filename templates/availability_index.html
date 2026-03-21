@@ -1,16 +1,28 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block content %}
+
 <h2>{{ t('availabilities') }}</h2>
-<p><a class="btn" href="{{ url_for('availability_new') }}">{{ t('add_availability') }}</a></p>
+
+<p>
+    <a class="btn" href="{{ url_for('new_availability') }}">
+        {{ t('add_availability') }}
+    </a>
+</p>
+
 <table>
-  <tr><th>{{ t('date_time') }}</th><th>{{ t('duration') }}</th><th>{{ t('location') }}</th><th>{{ t('status') }}</th></tr>
-  {% for s in slots %}
-  <tr>
-    <td>{{ s.start.strftime('%d.%m.%Y %H:%M') }}</td>
-    <td>{{ s.duration_minutes }}</td>
-    <td>{{ s.location }}</td>
-    <td>{{ s.status }}</td>
-  </tr>
-  {% endfor %}
+    <tr>
+        <th>{{ t('date_time') }}</th>
+        <th>{{ t('duration') }}</th>
+        <th>{{ t('location') }}</th>
+    </tr>
+
+    {% for a in avails %}
+    <tr>
+        <td>{{ a.start }}</td>
+        <td>{{ a.duration_minutes }} min</td>
+        <td>{{ a.location }}</td>
+    </tr>
+    {% endfor %}
 </table>
+
 {% endblock %}
