@@ -345,7 +345,7 @@ app.add_url_rule("/admin/availability",
                  endpoint="availability_index",
                  view_func=availability_index)
 
-# Availability NEW (GET+POST)
+# Availability NEW (GET+POST) – erzeugt automatisch einen Slot
 @app.route("/admin/availability/new", methods=["GET", "POST"], endpoint="new_availability")
 @admin_required
 def availability_new():
@@ -371,8 +371,27 @@ def availability_new():
             flash("Duration invalid", "error")
             return redirect(url_for('new_availability'))
 
+        # Save Availability
         avail = Availability(start=start, duration_minutes=duration, location=location)
         db.session.add(avail)
+        db.session.commit()
+
+        # Create corresponding Slot for public booking
+        try:
+            date_part, time_part = start.split("T")
+        except Exception:
+            date_part = start
+            time_part = "00:00"
+
+        slot = Slot(
+            date=date_part,
+            time=time_part,
+            booked=False,
+            customer_name=None,
+            customer_email=None,
+            customer_phone=None
+        )
+        db.session.add(slot)
         db.session.commit()
 
         flash(TRANSLATIONS[g.lang]['created'], 'success')
@@ -380,7 +399,7 @@ def availability_new():
 
     return render_template("availability_new.html", csrf_token=csrf)
 
-# Customers (nur GET-Views – Form-POST später)
+# Customers (nur GET-Views – POST später)
 @app.route("/admin/customers/new", endpoint="new_customer")
 @admin_required
 def customers_new():
