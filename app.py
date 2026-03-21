@@ -3,11 +3,11 @@ from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 
-# --- FIX: Provide t() so templates using {{ t('...') }} do not crash ---
+# --- Translation shim so {{ t('...') }} in templates works ---
 @app.context_processor
 def inject_translator():
     def t(key):
-        return key  # no translation, just return the text
+        return key  # simple pass-through; replace with real i18n later
     return dict(t=t)
 
 # DB config
@@ -16,7 +16,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# Example Slot model (extend as needed)
+# Simple Slot model (extend as you like)
 class Slot(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.String(50))
@@ -26,9 +26,8 @@ class Slot(db.Model):
     customer_email = db.Column(db.String(120))
     customer_phone = db.Column(db.String(50))
 
-# --- Ensure tables exist when running on Render/Gunicorn ---
-@app.before_first_request
-def init_db():
+# Ensure tables exist also under Gunicorn/Render (Flask 3 safe)
+with app.app_context():
     db.create_all()
 
 @app.route("/")
@@ -44,9 +43,6 @@ def online_booking():
 @app.route("/online-buchung/slot/<int:slot_id>")
 def booking_slot(slot_id):
     slot = Slot.query.get(slot_id)
-    # Optional: handle not found
-    if not slot:
-        return render_template("book_slot.html", slot=None)
     return render_template("book_slot.html", slot=slot)
 
 @app.route("/online-buchung/slot/<int:slot_id>/buchen", methods=["POST"])
@@ -61,7 +57,7 @@ def booking_submit(slot_id):
     db.session.commit()
     return "<h2>Buchung erfolgreich!</h2><p>Danke für Ihre Buchung.</p>"
 
-# ---------- ADMIN: Availability / other admin pages ----------
+# ---------- ADMIN ----------
 @app.route("/admin/availability")
 def availability_index():
     return render_template("availability_index.html")
@@ -103,7 +99,7 @@ def settings():
     return render_template("settings.html")
 
 if __name__ == "__main__":
-    # Local run: also ensure tables exist
+    # local dev: keep it here as well
     with app.app_context():
         db.create_all()
     app.run(host="0.0.0.0", port=5000)
