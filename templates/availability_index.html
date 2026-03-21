@@ -3,26 +3,27 @@
 
 <h2>{{ t('availabilities') }}</h2>
 
-<p>
-    <a class="btn" href="{{ url_for('new_availability') }}">
-        {{ t('add_availability') }}
-    </a>
+<p><a href="{{ url_for('new_availability') }}">{{ t('add_availability') }}</a> |
+   <a href="{{ url_for('appointments') }}">{{ t('appointments') }}</a>
 </p>
 
 <table>
-    <tr>
-        <th>{{ t('date_time') }}</th>
-        <th>{{ t('duration') }}</th>
-        <th>{{ t('location') }}</th>
-    </tr>
-
-    {% for a in avails %}
-    <tr>
-        <td>{{ a.start }}</td>
-        <td>{{ a.duration_minutes }} min</td>
-        <td>{{ a.location }}</td>
-    </tr>
-    {% endfor %}
+  <tr>
+    <th>ID</th>
+    <th>{{ t('date_time') }}</th>
+    <th>{{ t('duration') }}</th>
+    <th>{{ t('location') }}</th>
+    <th>Booked</th>
+  </tr>
+  {% for a in avails %}
+  <tr>
+    <td>{{ a.id }}</td>
+    <td>{{ a.start }}</td>
+    <td>{{ a.duration_minutes }} min</td>
+    <td>{{ a.location or '-' }}</td>
+    <td>{{ 'yes' if a.booked else 'no' }}</td>
+  </tr>
+  {% endfor %}
 </table>
 
 {% endblock %}
