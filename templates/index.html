@@ -1,0 +1,15 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<p><a class="btn" href="{{ url_for('new_customer') }}">{{ t('new_customer') }}</a></p>
+<table>
+  <tr><th>{{ t('name') }}</th><th>{{ t('contact') }}</th><th>{{ t('dogs') }}</th><th></th></tr>
+  {% for c in customers %}
+  <tr>
+    <td>{{ c.last_name }}, {{ c.first_name }}</td>
+    <td>{{ c.email }}<br>{{ c.phone }}</td>
+    <td>{{ c.dogs|length }}</td>
+    <td><a href="{{ url_for('customer_detail', customer_id=c.id) }}">{{ t('details') }}</a></td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}
