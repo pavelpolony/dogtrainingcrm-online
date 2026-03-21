@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+  <div class="auth-wrapper">
+    <h2>{{ t('login') }}</h2>
+    <form method="post" class="auth-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <label>
+        {{ t('username') }}
+        <input name="username" autocomplete="username" required>
+      </label>
+      <label>
+        {{ t('password') }}
+        <input name="password" type="password" autocomplete="current-password" required>
+      </label>
+      <button class="btn primary" type="submit">{{ t('login') }}</button>
+    </form>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-area">
+          {% for category, msg in messages %}
+            <div class="flash {{ category }}">{{ msg }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+  </div>
+{% endblock %}
