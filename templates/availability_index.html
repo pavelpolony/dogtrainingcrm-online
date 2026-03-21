@@ -1,24 +1,26 @@
 {% extends "base.html" %}
 {% block content %}
 
-<h2>{{ t('public_booking') }}</h2>
+<h2>{{ t('availabilities') }}</h2>
+
+<p>
+    <a class="btn" href="{{ url_for('new_availability') }}">
+        {{ t('add_availability') }}
+    </a>
+</p>
 
 <table>
     <tr>
         <th>{{ t('date_time') }}</th>
+        <th>{{ t('duration') }}</th>
         <th>{{ t('location') }}</th>
-        <th></th>
     </tr>
 
-    {% for s in slots %}
+    {% for a in avails %}
     <tr>
-        <td>{{ s.date }} {{ s.time }}</td>
-        <td>-</td>
-        <td>
-            <a class="btn" href="{{ url_for('book_slot', slot_id=s.id) }}">
-                {{ t('public_booking') }}
-            </a>
-        </td>
+        <td>{{ a.start }}</td>
+        <td>{{ a.duration_minutes }} min</td>
+        <td>{{ a.location }}</td>
     </tr>
     {% endfor %}
 </table>
