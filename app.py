@@ -85,6 +85,8 @@ TRANSLATIONS = {
         'invoice_prefix': 'Rechnungs-Präfix',
         'next_number': 'Nächste Nummer',
         'download_pdf': 'PDF herunterladen',
+        'login': 'Login',
+        'logout': 'Logout',
     },
     'en': {
         'app_title': 'Dog Training CRM',
@@ -140,6 +142,8 @@ TRANSLATIONS = {
         'invoice_prefix': 'Invoice prefix',
         'next_number': 'Next number',
         'download_pdf': 'Download PDF',
+        'login': 'Login',
+        'logout': 'Logout',
     }
 }
 
@@ -162,6 +166,16 @@ def switch_lang(code):
     resp = make_response(redirect(request.referrer or url_for('index')))
     resp.set_cookie('lang', code, max_age=60*60*24*365)
     return resp
+
+# ---------------- Dummy Admin-Routen für altes base.html ----------------
+@app.route('/admin/login', endpoint='admin_login')
+def admin_login():
+    flash('Diese vereinfachte Version hat keinen Admin-Login.', 'info')
+    return redirect(url_for('index'))
+
+@app.route('/admin/logout', endpoint='admin_logout')
+def admin_logout():
+    return redirect(url_for('index'))
 
 # ---------------- Models ----------------
 class Setting(db.Model):
@@ -196,7 +210,7 @@ class TrainingSession(db.Model):
     topic = db.Column(db.String(255))
     duration_minutes = db.Column(db.Integer)
     price_eur = db.Column(db.Float)
-    status = db.Column(db.String(50), default='geplant')  # geplant, erledigt, storniert
+    status = db.Column(db.String(50), default='geplant')
     notes = db.Column(db.Text)
     dog_id = db.Column(db.Integer, db.ForeignKey('dog.id'), nullable=False)
 
@@ -224,346 +238,3 @@ class Invoice(db.Model):
 class InvoiceItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     invoice_id = db.Column(db.Integer, db.ForeignKey('invoice.id'), nullable=False)
-    description = db.Column(db.String(255), nullable=False)
-    quantity = db.Column(db.Integer, default=1)
-    unit_price = db.Column(db.Float, default=0.0)
-    session_id = db.Column(db.Integer, db.ForeignKey('training_session.id'))
-
-# ---------------- DB initialisieren (WICHTIG FÜR GUNICORN/RENDER) ----------------
-with app.app_context():
-    db.create_all()
-    if not Setting.query.first():
-        db.session.add(Setting())
-        db.session.commit()
-
-# ------------- Helper -------------
-def get_settings():
-    s = Setting.query.first()
-    if not s:
-        s = Setting()
-        db.session.add(s)
-        db.session.commit()
-    return s
-
-def next_invoice_number():
-    s = get_settings()
-    num = f"{s.invoice_prefix}{s.next_number:04d}"
-    s.next_number += 1
-    db.session.commit()
-    return num
-
-# ------------- Routes: Pages -------------
-@app.route('/')
-def index():
-    customers = Customer.query.order_by(Customer.last_name).all()
-    return render_template('index.html', customers=customers)
-
-@app.route('/search')
-def search():
-    q = request.args.get('q', '')
-    customers = []
-    if q:
-        like = f"%{q}%"
-        customers = Customer.query.filter(
-            (Customer.first_name.ilike(like)) |
-            (Customer.last_name.ilike(like)) |
-            (Customer.email.ilike(like)) |
-            (Customer.phone.ilike(like))
-        ).all()
-    return render_template('search.html', q=q, customers=customers)
-
-# Customers CRUD
-@app.route('/customers/new', methods=['GET', 'POST'])
-def new_customer():
-    if request.method == 'POST':
-        c = Customer(
-            first_name=request.form['first_name'],
-            last_name=request.form['last_name'],
-            email=request.form.get('email'),
-            phone=request.form.get('phone'),
-            address=request.form.get('address'),
-            notes=request.form.get('notes')
-        )
-        db.session.add(c)
-        db.session.commit()
-        flash('Kunde angelegt', 'success')
-        return redirect(url_for('index'))
-    return render_template('customers_new.html')
-
-@app.route('/customers/<int:customer_id>')
-def customer_detail(customer_id):
-    c = Customer.query.get_or_404(customer_id)
-    invoices = Invoice.query.filter_by(customer_id=c.id).order_by(Invoice.date.desc()).all()
-    return render_template('customers_detail.html', c=c, invoices=invoices)
-
-@app.route('/customers/<int:customer_id>/edit', methods=['GET', 'POST'])
-def customer_edit(customer_id):
-    c = Customer.query.get_or_404(customer_id)
-    if request.method == 'POST':
-        for f in ['first_name', 'last_name', 'email', 'phone', 'address', 'notes']:
-            setattr(c, f, request.form.get(f))
-        db.session.commit()
-        flash('Kunde aktualisiert', 'success')
-        return redirect(url_for('customer_detail', customer_id=c.id))
-    return render_template('customers_edit.html', c=c)
-
-@app.route('/customers/<int:customer_id>/delete', methods=['POST'])
-def customer_delete(customer_id):
-    c = Customer.query.get_or_404(customer_id)
-    db.session.delete(c)
-    db.session.commit()
-    flash('Kunde gelöscht', 'info')
-    return redirect(url_for('index'))
-
-# Dogs
-@app.route('/customers/<int:customer_id>/dogs/new', methods=['GET', 'POST'])
-def dog_new(customer_id):
-    c = Customer.query.get_or_404(customer_id)
-    if request.method == 'POST':
-        d = Dog(
-            name=request.form['name'],
-            breed=request.form.get('breed'),
-            age_years=int(request.form.get('age_years') or 0) or None,
-            notes=request.form.get('notes'),
-            owner=c
-        )
-        db.session.add(d)
-        db.session.commit()
-        flash('Hund angelegt', 'success')
-        return redirect(url_for('customer_detail', customer_id=c.id))
-    return render_template('dogs_new.html', c=c)
-
-@app.route('/dogs/<int:dog_id>/delete', methods=['POST'])
-def dog_delete(dog_id):
-    d = Dog.query.get_or_404(dog_id)
-    cid = d.customer_id
-    db.session.delete(d)
-    db.session.commit()
-    flash('Hund gelöscht', 'info')
-    return redirect(url_for('customer_detail', customer_id=cid))
-
-# Sessions
-@app.route('/dogs/<int:dog_id>/sessions/new', methods=['GET', 'POST'])
-def session_new(dog_id):
-    d = Dog.query.get_or_404(dog_id)
-    if request.method == 'POST':
-        s = TrainingSession(
-            date=datetime.fromisoformat(request.form['date']),
-            location=request.form.get('location'),
-            topic=request.form.get('topic'),
-            duration_minutes=int(request.form.get('duration_minutes') or 0) or None,
-            price_eur=float(request.form.get('price_eur') or 0) or None,
-            status=request.form.get('status') or 'geplant',
-            notes=request.form.get('notes'),
-            dog=d
-        )
-        db.session.add(s)
-        db.session.commit()
-        flash('Trainingstermin angelegt', 'success')
-        return redirect(url_for('customer_detail', customer_id=d.customer_id))
-    return render_template('sessions_new.html', d=d)
-
-@app.route('/sessions/<int:session_id>/done', methods=['POST'])
-def session_done(session_id):
-    s = TrainingSession.query.get_or_404(session_id)
-    s.status = 'erledigt'
-    db.session.commit()
-    flash('Trainingstermin als erledigt markiert', 'success')
-    return redirect(url_for('customer_detail', customer_id=s.dog.customer_id))
-
-@app.route('/sessions/<int:session_id>/invoice', methods=['POST'])
-def session_invoice(session_id):
-    s = TrainingSession.query.get_or_404(session_id)
-    cust = s.dog.owner
-    inv = Invoice(
-        number=next_invoice_number(),
-        customer=cust,
-        vat_rate=get_settings().default_vat,
-        status='draft',
-    )
-    item = InvoiceItem(
-        invoice=inv,
-        description=f"Training: {s.topic or 'Hundetraining'} ({s.dog.name}) am {s.date.strftime('%d.%m.%Y %H:%M')}",
-        quantity=1,
-        unit_price=float(s.price_eur or 0.0),
-        session_id=s.id
-    )
-    db.session.add(inv)
-    db.session.add(item)
-
-    total_net = item.quantity * item.unit_price
-    total_vat = total_net * (inv.vat_rate / 100.0)
-    inv.total_net = total_net
-    inv.total_vat = total_vat
-    inv.total_gross = total_net + total_vat
-
-    db.session.commit()
-    flash('Rechnung erstellt', 'success')
-    return redirect(url_for('invoice_detail', invoice_id=inv.id))
-
-# Availability & Booking
-@app.route('/availability')
-def availability_index():
-    slots = Availability.query.order_by(Availability.start.asc()).all()
-    return render_template('availability_index.html', slots=slots)
-
-@app.route('/availability/new', methods=['GET', 'POST'])
-def availability_new():
-    if request.method == 'POST':
-        slot = Availability(
-            start=datetime.fromisoformat(request.form['start']),
-            duration_minutes=int(request.form.get('duration_minutes') or 60),
-            location=request.form.get('location'),
-            status='free'
-        )
-        db.session.add(slot)
-        db.session.commit()
-        flash('Slot angelegt', 'success')
-        return redirect(url_for('availability_index'))
-    return render_template('availability_new.html')
-
-@app.route('/book')
-def book_index():
-    now = datetime.utcnow()
-    slots = Availability.query.filter(
-        Availability.status == 'free',
-        Availability.start >= now
-    ).order_by(Availability.start.asc()).all()
-    return render_template('book_index.html', slots=slots)
-
-@app.route('/book/<int:slot_id>', methods=['GET', 'POST'])
-def book_slot(slot_id):
-    slot = Availability.query.get_or_404(slot_id)
-    if slot.status != 'free':
-        flash('Slot nicht verfügbar', 'info')
-        return redirect(url_for('book_index'))
-
-    if request.method == 'POST':
-        first_name = request.form['first_name']
-        last_name = request.form['last_name']
-        email = request.form.get('email')
-        phone = request.form.get('phone')
-        dog_name = request.form['dog_name']
-        topic = request.form.get('topic')
-
-        c = Customer.query.filter_by(email=email).first() if email else None
-        if not c:
-            c = Customer(first_name=first_name, last_name=last_name, email=email, phone=phone)
-            db.session.add(c)
-            db.session.flush()
-
-        d = Dog.query.filter_by(customer_id=c.id, name=dog_name).first()
-        if not d:
-            d = Dog(name=dog_name, owner=c)
-            db.session.add(d)
-            db.session.flush()
-
-        s = TrainingSession(
-            date=slot.start,
-            location=slot.location,
-            topic=topic or 'Einzeltraining',
-            duration_minutes=slot.duration_minutes,
-            price_eur=0.0,
-            status='geplant',
-            dog=d
-        )
-        slot.status = 'booked'
-        db.session.add(s)
-        db.session.commit()
-        flash('Buchung bestätigt', 'success')
-        return redirect(url_for('index'))
-
-    return render_template('book_slot.html', slot=slot)
-
-# Invoices
-@app.route('/invoices/<int:invoice_id>')
-def invoice_detail(invoice_id):
-    inv = Invoice.query.get_or_404(invoice_id)
-    return render_template('invoice_detail.html', inv=inv)
-
-@app.route('/invoices/<int:invoice_id>/pdf')
-def invoice_pdf(invoice_id):
-    try:
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib.units import mm
-        from reportlab.pdfgen import canvas
-    except Exception as e:
-        return f"ReportLab nicht verfügbar: {e}", 500
-
-    inv = Invoice.query.get_or_404(invoice_id)
-    tmp_pdf = "/tmp/invoice.pdf"
-    c = canvas.Canvas(tmp_pdf, pagesize=A4)
-    width, height = A4
-    y = height - 30 * mm
-
-    c.setFont("Helvetica-Bold", 14)
-    c.drawString(20 * mm, y, f"Rechnung / Invoice {inv.number}")
-    y -= 10 * mm
-
-    c.setFont("Helvetica", 10)
-    c.drawString(20 * mm, y, f"Datum / Date: {inv.date.strftime('%d.%m.%Y')}")
-    y -= 8 * mm
-
-    c.drawString(20 * mm, y, f"Kunde / Customer: {inv.customer.first_name} {inv.customer.last_name}")
-    y -= 6 * mm
-
-    if inv.customer.address:
-        c.drawString(20 * mm, y, inv.customer.address)
-        y -= 6 * mm
-
-    y -= 4 * mm
-    c.setFont("Helvetica-Bold", 10)
-    c.drawString(20 * mm, y, "Position")
-    c.drawString(120 * mm, y, "Netto (€)")
-    y -= 6 * mm
-
-    c.setFont("Helvetica", 10)
-    for item in inv.items:
-        c.drawString(20 * mm, y, f"{item.description}")
-        c.drawRightString(190 * mm, y, f"{item.quantity * item.unit_price:.2f}")
-        y -= 6 * mm
-
-    y -= 4 * mm
-    c.setFont("Helvetica-Bold", 10)
-    c.drawRightString(190 * mm, y, f"Zwischensumme: {inv.total_net:.2f} €")
-    y -= 5 * mm
-    c.drawRightString(190 * mm, y, f"USt ({inv.vat_rate:.2f}%): {inv.total_vat:.2f} €")
-    y -= 5 * mm
-    c.drawRightString(190 * mm, y, f"Gesamt: {inv.total_gross:.2f} €")
-
-    c.showPage()
-    c.save()
-
-    with open(tmp_pdf, "rb") as f:
-        pdf = f.read()
-
-    resp = make_response(pdf)
-    resp.headers["Content-Type"] = "application/pdf"
-    resp.headers["Content-Disposition"] = f'inline; filename="invoice_{inv.number}.pdf"'
-    return resp
-
-# Settings
-@app.route('/settings', methods=['GET', 'POST'])
-def settings():
-    s = get_settings()
-    if request.method == 'POST':
-        s.invoice_prefix = request.form.get('invoice_prefix') or s.invoice_prefix
-        s.next_number = int(request.form.get('next_number') or s.next_number)
-        s.default_vat = float(request.form.get('default_vat') or s.default_vat)
-        db.session.commit()
-        flash('Einstellungen gespeichert', 'success')
-        return redirect(url_for('settings'))
-    return render_template('settings.html', s=s)
-
-# CLI helper
-@app.cli.command('init-db')
-def init_db():
-    with app.app_context():
-        db.create_all()
-        if not Setting.query.first():
-            db.session.add(Setting())
-            db.session.commit()
-    print('DB initialisiert')
-
-if __name__ == '__main__':
-    app.run(host='127.0.0.1', port=5000, debug=False, use_reloader=False)
