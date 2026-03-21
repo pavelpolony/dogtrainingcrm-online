@@ -21,6 +21,14 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret')
 
 db = SQLAlchemy(app)
 
+# ---------------- Dummy current_user für alte Templates ----------------
+class GuestUser:
+    is_authenticated = False
+
+@app.context_processor
+def inject_guest_user():
+    return {'current_user': GuestUser()}
+
 # ---------------- i18n ----------------
 TRANSLATIONS = {
     'de': {
@@ -206,7 +214,7 @@ class Invoice(db.Model):
     customer_id = db.Column(db.Integer, db.ForeignKey('customer.id'), nullable=False)
     customer = db.relationship('Customer')
     vat_rate = db.Column(db.Float, default=19.0)
-    status = db.Column(db.String(30), default='draft')  # draft, sent, paid, cancelled
+    status = db.Column(db.String(30), default='draft')
     total_net = db.Column(db.Float, default=0.0)
     total_vat = db.Column(db.Float, default=0.0)
     total_gross = db.Column(db.Float, default=0.0)
@@ -218,7 +226,7 @@ class InvoiceItem(db.Model):
     invoice_id = db.Column(db.Integer, db.ForeignKey('invoice.id'), nullable=False)
     description = db.Column(db.String(255), nullable=False)
     quantity = db.Column(db.Integer, default=1)
-    unit_price = db.Column(db.Float, default=0.0)  # net
+    unit_price = db.Column(db.Float, default=0.0)
     session_id = db.Column(db.Integer, db.ForeignKey('training_session.id'))
 
 # ---------------- DB initialisieren (WICHTIG FÜR GUNICORN/RENDER) ----------------
@@ -559,4 +567,3 @@ def init_db():
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000, debug=False, use_reloader=False)
-    
