@@ -1,0 +1,20 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('invoice') }} {{ inv.number }}</h2>
+<p>{{ inv.customer.first_name }} {{ inv.customer.last_name }} | {{ inv.date.strftime('%d.%m.%Y') }}</p>
+<table>
+  <tr><th>Pos</th><th>{{ t('topic') }}</th><th>Qty</th><th>Netto (€)</th></tr>
+  {% for it in inv.items %}
+  <tr>
+    <td>{{ loop.index }}</td>
+    <td>{{ it.description }}</td>
+    <td>{{ it.quantity }}</td>
+    <td>{{ '%.2f' % (it.quantity * it.unit_price) }}</td>
+  </tr>
+  {% endfor %}
+  <tr><td colspan="3" style="text-align:right">Zwischensumme</td><td>{{ '%.2f' % inv.total_net }}</td></tr>
+  <tr><td colspan="3" style="text-align:right">USt {{ '%.2f' % inv.vat_rate }}%</td><td>{{ '%.2f' % inv.total_vat }}</td></tr>
+  <tr><td colspan="3" style="text-align:right"><strong>Gesamt</strong></td><td><strong>{{ '%.2f' % inv.total_gross }}</strong></td></tr>
+</table>
+<p><a class="btn" href="{{ url_for('invoice_pdf', invoice_id=inv.id) }}">{{ t('download_pdf') }}</a></p>
+{% endblock %}

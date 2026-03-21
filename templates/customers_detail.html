@@ -1,0 +1,62 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<h2>{{ c.first_name }} {{ c.last_name }}</h2>
+<p>{{ c.email }} | {{ c.phone }} | {{ c.address }}</p>
+<p>{{ c.notes }}</p>
+<p>
+  <a class="btn" href="{{ url_for('customer_edit', customer_id=c.id) }}">{{ t('edit') }}</a>
+  <form method="post" action="{{ url_for('customer_delete', customer_id=c.id) }}" style="display:inline" onsubmit="return confirm('{{ t('confirm_delete') }}')">
+    <button class="danger">{{ t('delete') }}</button>
+  </form>
+</p>
+
+<h3>{{ t('dogs') }}</h3>
+<p><a class="btn" href="{{ url_for('dog_new', customer_id=c.id) }}">{{ t('add_dog') }}</a></p>
+<ul>
+  {% for d in c.dogs %}
+  <li>
+    <strong>{{ d.name }}</strong> ({{ d.breed or ('Rasse unbekannt' if g.lang=='de' else 'Unknown breed') }}, {{ d.age_years or '?' }} {{ 'Jahre' if g.lang=='de' else 'years' }})
+    <form method="post" action="{{ url_for('dog_delete', dog_id=d.id) }}" style="display:inline" onsubmit="return confirm('{{ t('confirm_delete') }}')">
+      <button class="danger">{{ t('delete') }}</button>
+    </form>
+    <div>{{ d.notes }}</div>
+    <h4>{{ t('sessions') }}</h4>
+    <p><a class="btn" href="{{ url_for('session_new', dog_id=d.id) }}">{{ t('add_session') }}</a></p>
+    <table>
+      <tr><th>{{ t('date_time') }}</th><th>{{ t('location') }}</th><th>{{ t('topic') }}</th><th>{{ t('duration') }}</th><th>{{ t('price') }}</th><th>{{ t('status') }}</th><th>{{ t('invoice') }}</th><th></th></tr>
+      {% for s in d.sessions %}
+      <tr>
+        <td>{{ s.date.strftime('%d.%m.%Y %H:%M') }}</td>
+        <td>{{ s.location }}</td>
+        <td>{{ s.topic }}</td>
+        <td>{{ s.duration_minutes }}</td>
+        <td>{{ '%.2f' % s.price_eur if s.price_eur else '' }}</td>
+        <td>{{ s.status }}</td>
+        <td>
+          <form method="post" action="{{ url_for('session_invoice', session_id=s.id) }}" style="display:inline">
+            <button>{{ t('create_invoice') }}</button>
+          </form>
+        </td>
+        <td>
+          {% if s.status != 'erledigt' and s.status != 'done' %}
+          <form method="post" action="{{ url_for('session_done', session_id=s.id) }}" style="display:inline">
+            <button>{{ t('mark_done') }}</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </table>
+  </li>
+  {% endfor %}
+</ul>
+
+<h3>{{ t('invoices') }}</h3>
+<ul>
+  {% for inv in invoices %}
+    <li>
+      <a href="{{ url_for('invoice_detail', invoice_id=inv.id) }}">{{ inv.number }}</a> – {{ inv.date.strftime('%d.%m.%Y') }} – {{ '%.2f' % inv.total_gross }} €
+    </li>
+  {% endfor %}
+</ul>
+{% endblock %}

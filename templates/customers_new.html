@@ -1,0 +1,13 @@
+﻿{% extends "base.html" %}
+{% block content %}
+<h2>{{ t('new_customer') }}</h2>
+<form method="post">
+  <label>{{ t('first_name') }}<input name="first_name" required></label>
+  <label>{{ t('last_name') }}<input name="last_name" required></label>
+  <label>{{ t('email') }}<input name="email" type="email"></label>
+  <label>{{ t('phone') }}<input name="phone"></label>
+  <label>{{ t('address') }}<input name="address"></label>
+  <label>{{ t('notes') }}<textarea name="notes"></textarea></label>
+  <button>{{ t('save') }}</button>
+</form>
+{% endblock %}
