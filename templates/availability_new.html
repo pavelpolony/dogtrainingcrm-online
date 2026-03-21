@@ -1,25 +1,24 @@
 {% extends "base.html" %}
 {% block content %}
+
 <h2>{{ t('add_availability') }}</h2>
 
 <form method="post">
   <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
-  <label>
-    {{ t('date_time') }}
+  <label>{{ t('date_time') }}
     <input name="start" type="datetime-local" required>
   </label>
 
-  <label>
-    {{ t('duration') }}
+  <label>{{ t('duration') }}
     <input name="duration_minutes" type="number" min="15" value="60">
   </label>
 
-  <label>
-    {{ t('location') }}
+  <label>{{ t('location') }}
     <input name="location">
   </label>
 
   <button>{{ t('save') }}</button>
 </form>
+
 {% endblock %}
