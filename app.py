@@ -40,6 +40,10 @@ TRANSLATIONS = {
         'public_booking': 'Online-Buchung',
         'save': 'Speichern',
         'cancel': 'Abbrechen',
+        'logout': 'Abmelden',
+        'language': 'Sprache',
+        'search_ph': 'Suchen…',
+        'created': 'Erfolgreich angelegt.',
 
         # Navigation
         'german': 'Deutsch',
@@ -59,7 +63,6 @@ TRANSLATIONS = {
         'new_dog': 'Neuer Hund',
         'new_session': 'Neue Einheit',
         'login': 'Anmelden',
-        'logout': 'Abmelden',
         'username': 'Benutzername',
         'password': 'Passwort',
 
@@ -68,6 +71,12 @@ TRANSLATIONS = {
         'invoice_prefix': 'Rechnungs-Präfix',
         'next_number': 'Nächste Rechnungsnummer',
         'vat_rate': 'Mehrwertsteuer (%)',
+
+        # Availability page
+        'add_availability': 'Neue Verfügbarkeit anlegen',
+        'date_time': 'Datum & Uhrzeit',
+        'duration': 'Dauer (Minuten)',
+        'location': 'Ort',
 
         # Flash / Validation
         'saved': 'Gespeichert.',
@@ -86,6 +95,10 @@ TRANSLATIONS = {
         'public_booking': 'Online booking',
         'save': 'Save',
         'cancel': 'Cancel',
+        'logout': 'Logout',
+        'language': 'Language',
+        'search_ph': 'Search…',
+        'created': 'Successfully created.',
 
         'german': 'German',
         'english': 'English',
@@ -103,7 +116,6 @@ TRANSLATIONS = {
         'new_dog': 'New dog',
         'new_session': 'New session',
         'login': 'Sign in',
-        'logout': 'Sign out',
         'username': 'Username',
         'password': 'Password',
 
@@ -111,6 +123,11 @@ TRANSLATIONS = {
         'invoice_prefix': 'Invoice prefix',
         'next_number': 'Next invoice number',
         'vat_rate': 'VAT (%)',
+
+        'add_availability': 'Add Availability',
+        'date_time': 'Date & Time',
+        'duration': 'Duration (minutes)',
+        'location': 'Location',
 
         'saved': 'Saved.',
         'invalid_csrf': 'Invalid CSRF token. Please reload the page.',
@@ -135,7 +152,6 @@ def inject_translator():
 def set_lang():
     g.lang = request.cookies.get('lang', 'de')
 
-# FIX: richtige spitze Klammern in der Route
 @app.route('/lang/<code>', endpoint='switch_lang')
 def switch_lang(code):
     if code not in TRANSLATIONS:
@@ -160,6 +176,12 @@ class Settings(db.Model):
     next_number = db.Column(db.Integer, default=1)
     vat_rate = db.Column(db.Float, default=20.0)
 
+class Availability(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    start = db.Column(db.String(50))
+    duration_minutes = db.Column(db.Integer)
+    location = db.Column(db.String(120))
+
 class AdminUser(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(120), unique=True, index=True, nullable=False)
@@ -169,7 +191,6 @@ class AdminUser(UserMixin, db.Model):
     def set_password(self, raw: str):
         self.password_hash = generate_password_hash(raw)
 
-    # FIX: Type-Hint mit '->' statt '-&gt;'
     def check_password(self, raw: str) -> bool:
         return check_password_hash(self.password_hash, raw)
 
@@ -202,7 +223,6 @@ def ensure_csrf_token():
         session['csrf_token'] = token_urlsafe(32)
     return session['csrf_token']
 
-# FIX: Type-Hint mit '->' statt '-&gt;'
 def verify_csrf(form_token: str) -> bool:
     return form_token and session.get('csrf_token') and form_token == session['csrf_token']
 
@@ -264,7 +284,6 @@ def online_booking():
     slots = Slot.query.filter_by(booked=False).all()
     return render_template("book_index.html", slots=slots)
 
-# FIX: richtige spitze Klammern in den Routen
 @app.route("/online-buchung/slot/<int:slot_id>", endpoint="book_slot")
 def booking_slot(slot_id):
     slot = Slot.query.get(slot_id)
@@ -316,24 +335,52 @@ def admin_logout():
     return redirect(url_for('index'))
 
 # ---------------- Admin: Views (geschützt) ----------------
-# Availability
+# Availability LIST
 @app.route("/admin/availability", endpoint="availability")
 @admin_required
 def availability_index():
-    return render_template("availability_index.html")
+    avails = Availability.query.all()
+    return render_template("availability_index.html", avails=avails)
 app.add_url_rule("/admin/availability",
                  endpoint="availability_index",
                  view_func=availability_index)
 
-@app.route("/admin/availability/new", endpoint="new_availability")
+# Availability NEW (GET+POST)
+@app.route("/admin/availability/new", methods=["GET", "POST"], endpoint="new_availability")
 @admin_required
 def availability_new():
-    return render_template("availability_new.html")
-app.add_url_rule("/admin/availability/new",
-                 endpoint="availability_new",
-                 view_func=availability_new)
+    csrf = ensure_csrf_token()
+    if request.method == "POST":
+        if not verify_csrf(request.form.get("csrf_token")):
+            flash(TRANSLATIONS[g.lang]['invalid_csrf'], 'error')
+            return redirect(url_for('new_availability'))
 
-# Customers
+        start = (request.form.get("start") or "").strip()
+        duration_raw = (request.form.get("duration_minutes") or "").strip()
+        location = (request.form.get("location") or "").strip()
+
+        if not start:
+            flash("Start required", "error")
+            return redirect(url_for('new_availability'))
+
+        try:
+            duration = int(duration_raw)
+            if duration < 1:
+                raise ValueError()
+        except Exception:
+            flash("Duration invalid", "error")
+            return redirect(url_for('new_availability'))
+
+        avail = Availability(start=start, duration_minutes=duration, location=location)
+        db.session.add(avail)
+        db.session.commit()
+
+        flash(TRANSLATIONS[g.lang]['created'], 'success')
+        return redirect(url_for('availability_index'))
+
+    return render_template("availability_new.html", csrf_token=csrf)
+
+# Customers (nur GET-Views – Form-POST später)
 @app.route("/admin/customers/new", endpoint="new_customer")
 @admin_required
 def customers_new():
@@ -410,7 +457,6 @@ def settings_page():
             flash(TRANSLATIONS[g.lang]['invalid_csrf'], 'error')
             return redirect(url_for('admin_settings'))
 
-        # Validation
         prefix = (request.form.get('invoice_prefix') or '').strip()
         next_no_raw = (request.form.get('next_number') or '').strip()
         vat_raw = (request.form.get('vat_rate') or '').strip()
