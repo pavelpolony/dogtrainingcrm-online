@@ -3,12 +3,20 @@ from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 
+# --- FIX: Provide t() so templates using {{ t('...') }} do not crash ---
+@app.context_processor
+def inject_translator():
+    def t(key):
+        return key  # no translation, just return the text
+    return dict(t=t)
+
+# DB config
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///dogcrm.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
 
-# Beispiel: einfache Slot‑Tabelle (du kannst später erweitern)
+# Example Slot model (extend as needed)
 class Slot(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     date = db.Column(db.String(50))
@@ -18,25 +26,34 @@ class Slot(db.Model):
     customer_email = db.Column(db.String(120))
     customer_phone = db.Column(db.String(50))
 
+# --- Ensure tables exist when running on Render/Gunicorn ---
+@app.before_first_request
+def init_db():
+    db.create_all()
+
 @app.route("/")
 def index():
     return render_template("index.html")
 
-# ---------- ONLINE-BOOKING (für deine book_* Templates) ----------
-
+# ---------- ONLINE-BOOKING (for your book_* templates) ----------
 @app.route("/online-buchung")
 def online_booking():
-    # Startseite für Buchung (book_index.html)
+    # Start page for booking (book_index.html)
     return render_template("book_index.html")
 
 @app.route("/online-buchung/slot/<int:slot_id>")
 def booking_slot(slot_id):
     slot = Slot.query.get(slot_id)
+    # Optional: handle not found
+    if not slot:
+        return render_template("book_slot.html", slot=None)
     return render_template("book_slot.html", slot=slot)
 
 @app.route("/online-buchung/slot/<int:slot_id>/buchen", methods=["POST"])
 def booking_submit(slot_id):
     slot = Slot.query.get(slot_id)
+    if not slot:
+        return "<h2>Slot nicht gefunden.</h2>", 404
     slot.customer_name = request.form.get("name")
     slot.customer_email = request.form.get("email")
     slot.customer_phone = request.form.get("phone")
@@ -44,8 +61,7 @@ def booking_submit(slot_id):
     db.session.commit()
     return "<h2>Buchung erfolgreich!</h2><p>Danke für Ihre Buchung.</p>"
 
-# ---------- ADMIN: Verfügbarkeiten verwalten ----------
-
+# ---------- ADMIN: Availability / other admin pages ----------
 @app.route("/admin/availability")
 def availability_index():
     return render_template("availability_index.html")
@@ -54,7 +70,6 @@ def availability_index():
 def availability_new():
     return render_template("availability_new.html")
 
-# Weitere Admin-Seiten:
 @app.route("/admin/customers/new")
 def customers_new():
     return render_template("customers_new.html")
@@ -88,14 +103,7 @@ def settings():
     return render_template("settings.html")
 
 if __name__ == "__main__":
+    # Local run: also ensure tables exist
     with app.app_context():
         db.create_all()
     app.run(host="0.0.0.0", port=5000)
-
-
-@app.context_processor
-def inject_translator():
-    def t(key):
-        return key
-    return dict(t=t)
-
