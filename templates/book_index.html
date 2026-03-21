@@ -1,18 +1,24 @@
-﻿{% extends "base.html" %}
+{% extends "base.html" %}
 {% block content %}
+
 <h2>{{ t('public_booking') }}</h2>
+
 <table>
-  <tr><th>{{ t('date_time') }}</th><th>{{ t('duration') }}</th><th>{{ t('location') }}</th><th></th></tr>
-  {% for s in slots %}
-  <tr>
-    <td>{{ s.start.strftime('%d.%m.%Y %H:%M') }}</td>
-    <td>{{ s.duration_minutes }}</td>
-    <td>{{ s.location }}</td>
-    <td><a class="btn" href="{{ url_for('book_slot', slot_id=s.id) }}">{{ t('book') }}</a></td>
-  </tr>
-  {% endfor %}
+    <tr>
+        <th>{{ t('date_time') }}</th>
+        <th></th>
+    </tr>
+
+    {% for s in slots %}
+    <tr>
+        <td>{{ s.date }} {{ s.time }}</td>
+        <td>
+            <a href="{{ url_for('book_slot', slot_id=s.id) }}">
+                {{ t('public_booking') }}
+            </a>
+        </td>
+    </tr>
+    {% endfor %}
 </table>
-{% if not slots %}
-<p>Keine freien Termine / No free slots.</p>
-{% endif %}
+
 {% endblock %}
