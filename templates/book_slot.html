@@ -3,24 +3,25 @@
 
 <h2>{{ t('public_booking') }}</h2>
 
-<p>{{ t('date_time') }}: {{ slot.date }} {{ slot.time }}</p>
+<p>{{ t('date_time') }}: {{ date_str }} {{ time_str }}</p>
+<p>{{ t('location') }}: {{ a.location or '-' }}</p>
 
-<form method="post" action="{{ url_for('book_submit', slot_id=slot.id) }}">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+<form method="post" action="{{ url_for('book_submit', avail_id=a.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
-    <label>{{ t('username') }}
-        <input type="text" name="name" required>
-    </label>
+  <label>{{ t('customer') }}
+    <input type="text" name="name" required>
+  </label>
 
-    <label>{{ t('email') }}
-        <input type="email" name="email" required>
-    </label>
+  <label>{{ t('email') }}
+    <input type="email" name="email" required>
+  </label>
 
-    <label>{{ t('phone') }}
-        <input type="text" name="phone" required>
-    </label>
+  <label>{{ t('phone') }}
+    <input type="text" name="phone" required>
+  </label>
 
-    <button>{{ t('save') }}</button>
+  <button>{{ t('save') }}</button>
 </form>
 
 {% endblock %}
