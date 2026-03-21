@@ -11,14 +11,16 @@ TRANSLATIONS = {
         'public_booking': 'Online-Buchung',
         'german': 'Deutsch',
         'english': 'Englisch',
-        'new_customer': 'Neuer Kunde'
+        'new_customer': 'Neuer Kunde',
+        'invoice_prefix': 'Rechnungs-Präfix'
     },
     'en': {
         'app_title': 'Dog Training CRM',
         'public_booking': 'Online booking',
         'german': 'German',
         'english': 'English',
-        'new_customer': 'New customer'
+        'new_customer': 'New customer',
+        'invoice_prefix': 'Invoice prefix'
     }
 }
 
@@ -38,8 +40,7 @@ def switch_lang(code):
     if code not in TRANSLATIONS:
         code = 'de'
     resp = make_response(redirect(request.referrer or url_for('index')))
-    # 1 Jahr gültig
-    resp.set_cookie('lang', code, max_age=60 * 60 * 24 * 365)
+    resp.set_cookie('lang', code, max_age=60*60*24*365)
     return resp
 
 # ---------------- DB ----------------
@@ -56,7 +57,12 @@ class Slot(db.Model):
     customer_email = db.Column(db.String(120))
     customer_phone = db.Column(db.String(50))
 
-# Tabellen einmalig beim Import anlegen (Flask 3 + Gunicorn kompatibel)
+# NEW: Settings model
+class Settings(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    invoice_prefix = db.Column(db.String(50), default="INV-")
+
+# ensure DB
 with app.app_context():
     db.create_all()
 
@@ -65,14 +71,12 @@ with app.app_context():
 def home_index():
     return render_template("index.html")
 
-# ---------- ONLINE-BOOKING ----------
-# Endpoint-Name so, wie in base.html verlinkt (book_index)
+# ---------- ONLINE BOOKING ----------
 @app.route("/online-buchung", endpoint="book_index")
 def online_booking():
     slots = Slot.query.filter_by(booked=False).all()
     return render_template("book_index.html", slots=slots)
 
-# Slot-Ansicht – Endpoint 'book_slot'
 @app.route("/online-buchung/slot/<int:slot_id>", endpoint="book_slot")
 def booking_slot(slot_id):
     slot = Slot.query.get(slot_id)
@@ -80,7 +84,6 @@ def booking_slot(slot_id):
         abort(404)
     return render_template("book_slot.html", slot=slot)
 
-# Slot buchen – Endpoint 'book_submit'
 @app.route("/online-buchung/slot/<int:slot_id>/buchen", methods=["POST"], endpoint="book_submit")
 def booking_submit(slot_id):
     slot = Slot.query.get(slot_id)
@@ -93,75 +96,64 @@ def booking_submit(slot_id):
     db.session.commit()
     return "<h2>Buchung erfolgreich!</h2><p>Danke für Ihre Buchung.</p>"
 
-# ---------- ADMIN (Templates existieren in deinem Repo) ----------
-# Availability
+# ---------- ADMIN ----------
 @app.route("/admin/availability", endpoint="availability")
 def availability_index():
     return render_template("availability_index.html")
-# Alias für evtl. Template-Link 'availability_index'
 app.add_url_rule("/admin/availability", endpoint="availability_index", view_func=availability_index)
 
 @app.route("/admin/availability/new", endpoint="new_availability")
 def availability_new():
     return render_template("availability_new.html")
-# Alias für evtl. Template-Link 'availability_new'
 app.add_url_rule("/admin/availability/new", endpoint="availability_new", view_func=availability_new)
 
-# Customers
 @app.route("/admin/customers/new", endpoint="new_customer")
 def customers_new():
     return render_template("customers_new.html")
-# Alias für evtl. Template-Link 'customers_new'
 app.add_url_rule("/admin/customers/new", endpoint="customers_new", view_func=customers_new)
 
 @app.route("/admin/customers/edit", endpoint="edit_customer")
 def customers_edit():
     return render_template("customers_edit.html")
-# Alias
 app.add_url_rule("/admin/customers/edit", endpoint="customers_edit", view_func=customers_edit)
 
 @app.route("/admin/customers/detail", endpoint="customer_detail")
 def customers_detail():
     return render_template("customers_detail.html")
-# Alias
 app.add_url_rule("/admin/customers/detail", endpoint="customers_detail", view_func=customers_detail)
 
-# Dogs
 @app.route("/admin/dogs/new", endpoint="new_dog")
 def dogs_new():
     return render_template("dogs_new.html")
-# Alias
 app.add_url_rule("/admin/dogs/new", endpoint="dogs_new", view_func=dogs_new)
 
-# Invoice
 @app.route("/admin/invoice/detail", endpoint="invoice")
 def invoice_detail():
     return render_template("invoice_detail.html")
-# Alias
 app.add_url_rule("/admin/invoice/detail", endpoint="invoice_detail", view_func=invoice_detail)
 
-# Search
 @app.route("/admin/search", endpoint="admin_search")
 def search():
     return render_template("search.html")
-# Alias
 app.add_url_rule("/admin/search", endpoint="search", view_func=search)
 
-# Sessions
 @app.route("/admin/sessions/new", endpoint="new_session")
 def sessions_new():
     return render_template("sessions_new.html")
-# Alias
 app.add_url_rule("/admin/sessions/new", endpoint="sessions_new", view_func=sessions_new)
 
-# Settings
+# ---------- SETTINGS PAGE (FIXED) ----------
 @app.route("/admin/settings", endpoint="admin_settings")
-def settings():
-    return render_template("settings.html")
-# Alias
-app.add_url_rule("/admin/settings", endpoint="settings", view_func=settings)
+def settings_page():
+    s = Settings.query.first()
+    if not s:
+        s = Settings(invoice_prefix="INV-")
+        db.session.add(s)
+        db.session.commit()
+    return render_template("settings.html", s=s)
+app.add_url_rule("/admin/settings", endpoint="settings", view_func=settings_page)
 
-# ---------- Optional: Health + Seed (für Tests) ----------
+# ---------- Health + Seed ----------
 @app.route("/health")
 def health():
     return "ok", 200
@@ -172,10 +164,10 @@ def admin_seed():
         db.session.add_all([
             Slot(date="2026-03-22", time="10:00"),
             Slot(date="2026-03-22", time="11:00"),
-            Slot(date="2026-03-23", time="15:30"),
+            Slot(date="2026-03-23", time="15:30")
         ])
         db.session.commit()
-        return "seeded 3 slots", 200
+        return "seeded", 200
     return "already seeded", 200
 
 if __name__ == "__main__":
