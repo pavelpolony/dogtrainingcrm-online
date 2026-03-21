@@ -4,23 +4,60 @@ import os
 
 app = Flask(__name__)
 
-# ---------------- i18n (minimal) ----------------
+# ---------------- i18n (jetzt vollständig) ----------------
 TRANSLATIONS = {
     'de': {
         'app_title': 'Dog Training CRM',
         'public_booking': 'Online-Buchung',
+
+        # Navigation
         'german': 'Deutsch',
         'english': 'Englisch',
+        'settings': 'Einstellungen',
+        'customers': 'Kunden',
+        'dogs': 'Hunde',
+        'sessions': 'Trainingseinheiten',
+        'invoices': 'Rechnungen',
+        'search': 'Suche',
+        'availability': 'Verfügbarkeit',
+        'online_booking': 'Online-Buchung',
+
+        # Buttons
         'new_customer': 'Neuer Kunde',
-        'invoice_prefix': 'Rechnungs-Präfix'
+        'save': 'Speichern',
+
+        # Settings page
+        'settings_title': 'Einstellungen',
+        'invoice_prefix': 'Rechnungs-Präfix',
+        'next_number': 'Nächste Rechnungsnummer',
+        'vat_rate': 'Mehrwertsteuer (%)'
     },
+
     'en': {
         'app_title': 'Dog Training CRM',
         'public_booking': 'Online booking',
+
+        # Navigation
         'german': 'German',
         'english': 'English',
+        'settings': 'Settings',
+        'customers': 'Customers',
+        'dogs': 'Dogs',
+        'sessions': 'Sessions',
+        'invoices': 'Invoices',
+        'search': 'Search',
+        'availability': 'Availability',
+        'online_booking': 'Online booking',
+
+        # Buttons
         'new_customer': 'New customer',
-        'invoice_prefix': 'Invoice prefix'
+        'save': 'Save',
+
+        # Settings page
+        'settings_title': 'Settings',
+        'invoice_prefix': 'Invoice prefix',
+        'next_number': 'Next invoice number',
+        'vat_rate': 'VAT (%)'
     }
 }
 
@@ -40,7 +77,7 @@ def switch_lang(code):
     if code not in TRANSLATIONS:
         code = 'de'
     resp = make_response(redirect(request.referrer or url_for('index')))
-    resp.set_cookie('lang', code, max_age=60*60*24*365)
+    resp.set_cookie('lang', code, max_age=60 * 60 * 24 * 365)
     return resp
 
 # ---------------- DB ----------------
@@ -57,12 +94,12 @@ class Slot(db.Model):
     customer_email = db.Column(db.String(120))
     customer_phone = db.Column(db.String(50))
 
-# NEW: Settings model
 class Settings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     invoice_prefix = db.Column(db.String(50), default="INV-")
+    next_number = db.Column(db.Integer, default=1)
+    vat_rate = db.Column(db.Float, default=20.0)  # Default 20%
 
-# ensure DB
 with app.app_context():
     db.create_all()
 
@@ -142,12 +179,12 @@ def sessions_new():
     return render_template("sessions_new.html")
 app.add_url_rule("/admin/sessions/new", endpoint="sessions_new", view_func=sessions_new)
 
-# ---------- SETTINGS PAGE (FIXED) ----------
+# ---------- SETTINGS PAGE (FULL FIX) ----------
 @app.route("/admin/settings", endpoint="admin_settings")
 def settings_page():
     s = Settings.query.first()
     if not s:
-        s = Settings(invoice_prefix="INV-")
+        s = Settings()
         db.session.add(s)
         db.session.commit()
     return render_template("settings.html", s=s)
@@ -167,8 +204,8 @@ def admin_seed():
             Slot(date="2026-03-23", time="15:30")
         ])
         db.session.commit()
-        return "seeded", 200
-    return "already seeded", 200
+        return "seeded"
+    return "already seeded"
 
 if __name__ == "__main__":
     with app.app_context():
