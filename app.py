@@ -135,6 +135,7 @@ def inject_translator():
 def set_lang():
     g.lang = request.cookies.get('lang', 'de')
 
+# FIX: richtige spitze Klammern in der Route
 @app.route('/lang/<code>', endpoint='switch_lang')
 def switch_lang(code):
     if code not in TRANSLATIONS:
@@ -168,6 +169,7 @@ class AdminUser(UserMixin, db.Model):
     def set_password(self, raw: str):
         self.password_hash = generate_password_hash(raw)
 
+    # FIX: Type-Hint mit '->' statt '-&gt;'
     def check_password(self, raw: str) -> bool:
         return check_password_hash(self.password_hash, raw)
 
@@ -200,6 +202,7 @@ def ensure_csrf_token():
         session['csrf_token'] = token_urlsafe(32)
     return session['csrf_token']
 
+# FIX: Type-Hint mit '->' statt '-&gt;'
 def verify_csrf(form_token: str) -> bool:
     return form_token and session.get('csrf_token') and form_token == session['csrf_token']
 
@@ -261,6 +264,7 @@ def online_booking():
     slots = Slot.query.filter_by(booked=False).all()
     return render_template("book_index.html", slots=slots)
 
+# FIX: richtige spitze Klammern in den Routen
 @app.route("/online-buchung/slot/<int:slot_id>", endpoint="book_slot")
 def booking_slot(slot_id):
     slot = Slot.query.get(slot_id)
