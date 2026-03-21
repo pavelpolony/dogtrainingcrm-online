@@ -10,13 +10,15 @@ TRANSLATIONS = {
         'app_title': 'Dog Training CRM',
         'public_booking': 'Online-Buchung',
         'german': 'Deutsch',
-        'english': 'Englisch'
+        'english': 'Englisch',
+        'new_customer': 'Neuer Kunde'
     },
     'en': {
         'app_title': 'Dog Training CRM',
         'public_booking': 'Online booking',
         'german': 'German',
-        'english': 'English'
+        'english': 'English',
+        'new_customer': 'New customer'
     }
 }
 
@@ -31,13 +33,12 @@ def inject_translator():
 def set_lang():
     g.lang = request.cookies.get('lang', 'de')
 
-@app.route('/lang/<code>')
+@app.route('/lang/<code>', endpoint='switch_lang')
 def switch_lang(code):
-    # nur 'de' und 'en' erlauben
     if code not in TRANSLATIONS:
         code = 'de'
     resp = make_response(redirect(request.referrer or url_for('index')))
-    # 1 Jahr gültig
+    # 1 Jahr
     resp.set_cookie('lang', code, max_age=60 * 60 * 24 * 365)
     return resp
 
@@ -55,29 +56,32 @@ class Slot(db.Model):
     customer_email = db.Column(db.String(120))
     customer_phone = db.Column(db.String(50))
 
-# Flask 3 kompatibel: Tabellen einmalig beim Import anlegen
+# Tabellen einmalig beim Import anlegen (Flask 3 + Gunicorn kompatibel)
 with app.app_context():
     db.create_all()
 
-# ---------------- Routes: Pages ----------------
-@app.route("/")
-def index():
+# ---------------- Pages ----------------
+@app.route("/", endpoint="index")
+def home_index():
     return render_template("index.html")
 
-# Online-Buchung – Endpoint-Name so, wie base.html ihn verlinkt
+# ---------- ONLINE-BOOKING ----------
+# Endpoint-Name so, wie in base.html verlinkt (book_index)
 @app.route("/online-buchung", endpoint="book_index")
 def online_booking():
     slots = Slot.query.filter_by(booked=False).all()
     return render_template("book_index.html", slots=slots)
 
-@app.route("/online-buchung/slot/<int:slot_id>")
+# Slot-Ansicht – Endpoint 'book_slot' (falls im Template so verlinkt)
+@app.route("/online-buchung/slot/<int:slot_id>", endpoint="book_slot")
 def booking_slot(slot_id):
     slot = Slot.query.get(slot_id)
     if not slot:
         abort(404)
     return render_template("book_slot.html", slot=slot)
 
-@app.route("/online-buchung/slot/<int:slot_id>/buchen", methods=["POST"])
+# Slot buchen
+@app.route("/online-buchung/slot/<int:slot_id>/buchen", methods=["POST"], endpoint="book_submit")
 def booking_submit(slot_id):
     slot = Slot.query.get(slot_id)
     if not slot:
@@ -89,48 +93,55 @@ def booking_submit(slot_id):
     db.session.commit()
     return "<h2>Buchung erfolgreich!</h2><p>Danke für Ihre Buchung.</p>"
 
-# Admin-Ansichten (Templates existieren in deinem Repo)
-@app.route("/admin/availability")
+# ---------- ADMIN (Templates existieren in deinem Repo) ----------
+# Availability
+@app.route("/admin/availability", endpoint="availability")
 def availability_index():
     return render_template("availability_index.html")
 
-@app.route("/admin/availability/new")
+@app.route("/admin/availability/new", endpoint="new_availability")
 def availability_new():
     return render_template("availability_new.html")
 
-@app.route("/admin/customers/new")
+# Customers
+@app.route("/admin/customers/new", endpoint="new_customer")
 def customers_new():
     return render_template("customers_new.html")
 
-@app.route("/admin/customers/edit")
+@app.route("/admin/customers/edit", endpoint="edit_customer")
 def customers_edit():
     return render_template("customers_edit.html")
 
-@app.route("/admin/customers/detail")
+@app.route("/admin/customers/detail", endpoint="customer_detail")
 def customers_detail():
     return render_template("customers_detail.html")
 
-@app.route("/admin/dogs/new")
+# Dogs
+@app.route("/admin/dogs/new", endpoint="new_dog")
 def dogs_new():
     return render_template("dogs_new.html")
 
-@app.route("/admin/invoice/detail")
+# Invoice
+@app.route("/admin/invoice/detail", endpoint="invoice")
 def invoice_detail():
     return render_template("invoice_detail.html")
 
-@app.route("/admin/search")
+# Search
+@app.route("/admin/search", endpoint="admin_search")
 def search():
     return render_template("search.html")
 
-@app.route("/admin/sessions/new")
+# Sessions
+@app.route("/admin/sessions/new", endpoint="new_session")
 def sessions_new():
     return render_template("sessions_new.html")
 
-@app.route("/admin/settings")
+# Settings
+@app.route("/admin/settings", endpoint="admin_settings")
 def settings():
     return render_template("settings.html")
 
-# -------- Optional: Health + Seed (für Tests) --------
+# ---------- Optional: Health + Seed (für Tests) ----------
 @app.route("/health")
 def health():
     return "ok", 200
