@@ -24,8 +24,6 @@ db = SQLAlchemy(app)
 
 # ---------------- Helper für UTC-Now ohne Deprecation ----------------
 def utc_now_naive():
-    # aware UTC erzeugen, dann auf naive UTC zurückgehen,
-    # damit bestehende naive DB-Datetimes vergleichbar bleiben
     return datetime.now(UTC).replace(tzinfo=None)
 
 # ---------------- i18n ----------------
@@ -200,7 +198,6 @@ class TrainingSession(db.Model):
     price_eur = db.Column(db.Float)
     status = db.Column(db.String(50), default="geplant")
     notes = db.Column(db.Text)
-
     dog_id = db.Column(db.Integer, db.ForeignKey("dog.id"), nullable=False)
 
 class Availability(db.Model):
@@ -214,16 +211,13 @@ class Invoice(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     number = db.Column(db.String(50), unique=True)
     date = db.Column(db.DateTime, default=utc_now_naive)
-
     customer_id = db.Column(db.Integer, db.ForeignKey("customer.id"), nullable=False)
-
     vat_rate = db.Column(db.Float, default=19.0)
     status = db.Column(db.String(30), default="draft")
     total_net = db.Column(db.Float, default=0.0)
     total_vat = db.Column(db.Float, default=0.0)
     total_gross = db.Column(db.Float, default=0.0)
     notes = db.Column(db.Text)
-
     items = db.relationship("InvoiceItem", backref="invoice", cascade="all, delete-orphan")
 
 class InvoiceItem(db.Model):
