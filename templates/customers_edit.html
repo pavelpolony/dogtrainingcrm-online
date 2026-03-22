@@ -1,0 +1,40 @@
+﻿{% extends "base.html" %}
+{% block content %}
+
+<h2>{{ t('edit') }}</h2>
+
+<form method="post">
+  <label>
+    {{ t('first_name') }}
+    <input name="first_name" value="{{ c.first_name }}" required>
+  </label>
+
+  <label>
+    {{ t('last_name') }}
+    <input name="last_name" value="{{ c.last_name }}" required>
+  </label>
+
+  <label>
+    {{ t('email') }}
+    <input name="email" type="email" value="{{ c.email or '' }}">
+  </label>
+
+  <label>
+    {{ t('phone') }}
+    <input name="phone" value="{{ c.phone or '' }}">
+  </label>
+
+  <label>
+    {{ t('address') }}
+    <input name="address" value="{{ c.address or '' }}">
+  </label>
+
+  <label>
+    {{ t('notes') }}
+    <textarea name="notes">{{ c.notes or '' }}</textarea>
+  </label>
+
+  <button type="submit">{{ t('save') }}</button>
+</form>
+
+{% endblock %}

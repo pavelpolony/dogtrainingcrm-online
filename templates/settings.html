@@ -1,0 +1,25 @@
+﻿{% extends "base.html" %}
+{% block content %}
+
+<h2>{{ t('settings') }}</h2>
+
+<form method="post">
+  <label>
+    {{ t('invoice_prefix') }}
+    <input name="invoice_prefix" value="{{ s.invoice_prefix }}">
+  </label>
+
+  <label>
+    {{ t('next_number') }}
+    <input name="next_number" type="number" value="{{ s.next_number }}">
+  </label>
+
+  <label>
+    {{ t('vat_rate') }}
+    <input name="default_vat" type="number" step="0.1" value="{{ s.default_vat }}">
+  </label>
+
+  <button type="submit">{{ t('save') }}</button>
+</form>
+
+{% endblock %}

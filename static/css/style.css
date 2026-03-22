@@ -1,0 +1,16 @@
+﻿body{font-family:system-ui, Arial, sans-serif; margin:0; padding:0;}
+header{background:#1f2937;color:#fff;padding:1rem 1.5rem}
+header h1{margin:0}
+nav a{color:#fff;margin-right:1rem}
+main{padding:1rem 1.5rem}
+label{display:block;margin:0.5rem 0}
+input, textarea, select{width:100%;max-width:480px;padding:0.5rem}
+button{padding:0.4rem 0.8rem;margin-top:0.3rem}
+.btn{background:#2563eb;color:#fff;padding:0.4rem 0.8rem;text-decoration:none}
+.danger{background:#b91c1c;color:#fff}
+table{border-collapse:collapse;width:100%}
+th, td{border:1px solid #ddd;padding:0.5rem;text-align:left;vertical-align:top}
+ul.flash{list-style:none;padding:0}
+ul.flash li{margin:0.25rem 0;padding:0.5rem;border-radius:4px}
+ul.flash li.success{background:#dcfce7}
+ul.flash li.info{background:#dbeafe}

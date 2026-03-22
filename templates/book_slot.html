@@ -1,0 +1,47 @@
+﻿{% extends "base.html" %}
+{% block content %}
+
+<h2>{{ t('book_this_slot') }}</h2>
+
+<p>
+  {{ t('date_time') }}:
+  {{ slot.start.strftime('%d.%m.%Y %H:%M') }}
+  ({{ slot.duration_minutes }} {{ 'Minuten' if g.lang == 'de' else 'minutes' }})
+</p>
+
+<form method="post">
+  <label>
+    {{ t('first_name') }}
+    <input name="first_name" required>
+  </label>
+
+  <label>
+    {{ t('last_name') }}
+    <input name="last_name" required>
+  </label>
+
+  <label>
+    {{ t('email') }}
+    <input name="email" type="email">
+  </label>
+
+  <label>
+    {{ t('phone') }}
+    <input name="phone">
+  </label>
+
+  <label>
+    {{ t('dog_name') }}
+    <input name="dog_name" required>
+  </label>
+
+  <label>
+    {{ t('topic') }}
+    <input name="topic" placeholder="Leinenführigkeit, Rückruf…">
+  </label>
+
+  <button type="submit">{{ t('confirm') }}</button>
+</form>
+
+{% endblock %}
+``

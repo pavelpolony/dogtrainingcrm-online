@@ -1,0 +1,49 @@
+﻿{% extends "base.html" %}
+{% block content %}
+
+<h2>{{ t('add_session') }}</h2>
+
+<form method="post">
+  <label>
+    {{ t('date_time') }}
+    <input name="date" type="datetime-local" required>
+  </label>
+
+  <label>
+    {{ t('location') }}
+    <input name="location">
+  </label>
+
+  <label>
+    {{ t('topic') }}
+    <input name="topic">
+  </label>
+
+  <label>
+    {{ t('duration') }}
+    <input name="duration_minutes" type="number" min="0">
+  </label>
+
+  <label>
+    {{ t('price') }}
+    <input name="price_eur" type="number" step="0.01" min="0">
+  </label>
+
+  <label>
+    {{ t('status') }}
+    <select name="status">
+      <option value="geplant">{{ t('planned') }}</option>
+      <option value="erledigt">{{ t('done') }}</option>
+      <option value="storniert">{{ t('cancelled') }}</option>
+    </select>
+  </label>
+
+  <label>
+    {{ t('notes') }}
+    <textarea name="notes"></textarea>
+  </label>
+
+  <button type="submit">{{ t('save') }}</button>
+</form>
+
+{% endblock %}
